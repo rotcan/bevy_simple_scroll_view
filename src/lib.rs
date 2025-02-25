@@ -54,6 +54,12 @@ impl Default for ScrollView {
     }
 }
 
+#[derive(Debug,PartialEq,Reflect,Default)]
+pub enum ScrollDirection {
+    Horizontal,
+    #[default]
+    Vertical,
+}
 /// Component containing offset value of the scroll container to the parent.
 /// It is possible to update the field `pos_y` manually to move scrollview to desired location.
 #[derive(Component, Debug, Reflect, Default)]
@@ -63,6 +69,7 @@ pub struct ScrollableContent {
     pub pos_y: f32,
     /// Maximum value for the scroll. It is updated automatically based on the size of the children nodes.
     pub max_scroll: f32,
+    pub direction: ScrollDirection,
 }
 
 impl ScrollableContent {
@@ -144,7 +151,12 @@ fn input_mouse_pressed_move(
                 let Ok(mut scroll) = content_q.get_mut(child) else {
                     continue;
                 };
-                scroll.scroll_by(evt.delta.y);
+                if scroll.direction == ScrollDirection::Horizontal {
+                    scroll.scroll_by(evt.delta.x);
+                }else{
+                    scroll.scroll_by(evt.delta.y);
+                }
+                
             }
         }
     }
@@ -154,15 +166,20 @@ fn update_size(
     mut q: Query<(&Children, &ComputedNode), With<ScrollView>>,
     mut content_q: Query<(&mut ScrollableContent, &ComputedNode), Changed<ComputedNode>>,
 ) {
-    for (children, scroll_view_node) in q.iter_mut() {
-        let container_height = scroll_view_node.size().y * scroll_view_node.inverse_scale_factor();
+    for (children, node) in q.iter_mut() {
+        let container_height =  node.size().y * node.inverse_scale_factor();
+        let container_width =  node.size().x * node.inverse_scale_factor();
         for &child in children.iter() {
             let Ok((mut scroll, node)) = content_q.get_mut(child) else {
                 continue;
             };
 
-            scroll.max_scroll =
-                (node.size().y * node.inverse_scale_factor() - container_height).max(0.0);
+            if scroll.direction == ScrollDirection::Horizontal{
+                scroll.max_scroll = (node.size().x * node.inverse_scale_factor()- container_width).max(0.0);
+            }else{
+                scroll.max_scroll = (node.size().y * node.inverse_scale_factor()- container_height).max(0.0);
+            }
+            
             #[cfg(feature = "extra_logs")]
             info!(
                 "CONTAINER {}, max_scroll: {}",
@@ -190,7 +207,12 @@ fn input_touch_pressed_move(
                 let Ok(mut scroll) = content_q.get_mut(child) else {
                     continue;
                 };
-                scroll.scroll_by(touch.delta().y);
+                if scroll.direction == ScrollDirection::Horizontal{
+                    scroll.scroll_by(touch.delta().x);
+                }else{
+                    scroll.scroll_by(touch.delta().y);
+                }
+                
             }
         }
     }
@@ -214,6 +236,13 @@ fn scroll_events(
                 }
                 MouseScrollUnit::Pixel => ev.y,
             };
+
+            let x = match ev.unit {
+                MouseScrollUnit::Line => {
+                    ev.x * time.delta().as_secs_f32() * scroll_view.scroll_speed
+                }
+                MouseScrollUnit::Pixel => ev.x,
+            };
             #[cfg(feature = "extra_logs")]
             info!("Scroolling by {:#?}: {} movement", ev.unit, y);
 
@@ -221,7 +250,12 @@ fn scroll_events(
                 let Ok(mut scroll) = content_q.get_mut(child) else {
                     continue;
                 };
-                scroll.scroll_by(y);
+                if scroll.direction == ScrollDirection::Horizontal {
+                    scroll.scroll_by(x);
+                }else{
+                    scroll.scroll_by(y);
+                }
+                
             }
         }
     }
@@ -229,6 +263,11 @@ fn scroll_events(
 
 fn scroll_update(mut q: Query<(&ScrollableContent, &mut Node), Changed<ScrollableContent>>) {
     for (scroll, mut style) in q.iter_mut() {
-        style.top = Val::Px(scroll.pos_y);
+        if scroll.direction == ScrollDirection::Horizontal{
+            style.left = Val::Px(scroll.pos_y);
+        }else{
+            style.top = Val::Px(scroll.pos_y);    
+        }
+        
     }
 }

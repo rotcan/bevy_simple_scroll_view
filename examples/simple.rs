@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
             });
             p.spawn((
                 Node {
-                    width: Val::Percent(80.0),
+                    width: Val::Percent(60.0),
                     margin: UiRect::all(Val::Px(15.0)),
                     ..scroll_view_node()
                 },
@@ -63,14 +63,43 @@ fn setup(mut commands: Commands) {
                 ScrollView::default(),
             ))
             .with_children(|p| {
-                p.spawn(ScrollableContent::default())
-                    .with_children(|scroll_area| {
-                        for i in 1..21 {
-                            scroll_area
-                                .spawn((base_node.clone(), BorderColor(CLR_3)))
-                                .with_child((Text::new(format!("Nr {} out of 20", i)), TEXT_COLOR));
-                        }
-                    });
+                p.spawn((
+                    Node {
+                        flex_direction:  FlexDirection::Row,
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    ScrollableContent{
+                        direction: ScrollDirection::Horizontal,
+                        ..default()
+                    },
+                ))
+                .with_children(|scroll_area| {
+                    for i in 0..21 {
+                        scroll_area
+                            .spawn((
+                                Node {
+                                    min_width: Val::Px(200.0),
+                                    margin: UiRect::all(Val::Px(15.0)),
+                                    border: UiRect::all(Val::Px(5.0)),
+                                    padding: UiRect::all(Val::Px(30.0)),
+                                    ..default()
+                                },
+                                BorderColor(CLR_3),
+                            ))
+                            .with_children(|p| {
+                                p.spawn((
+                                    Text::new(format!("Nr {}", i)),
+                                    TextFont {
+                                        font_size: 25.0,
+                                        ..default()
+                                    },
+                                    TextColor(CLR_3),
+                                    TextLayout::new_with_justify(JustifyText::Center),
+                                ));
+                            });
+                    }
+                });
             });
         });
 }
